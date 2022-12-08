@@ -35,13 +35,17 @@
     font-size: 32px;
 }
 
-maplibregl-popup-close-button mapboxgl-popup-close-button {
-    font-size: 24px;
-    right: 5px;
-}
-
 textarea.address {
     margin-bottom: 8px;
     resize: none;
+}
+
+.btn-container {
+    display: flex;
+}
+
+.button {
+    margin-left: 4px;
+    width: 100%;
 }
 

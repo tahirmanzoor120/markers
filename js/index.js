@@ -15,6 +15,7 @@ const geojson = {
         coordinates: [71.46767271809128, 30.33031214415695]
       },
       properties: {
+        isSaved: true,
         address: 'Address of Point 1'
       }
     },
@@ -25,6 +26,7 @@ const geojson = {
         coordinates: [71.7828430061773, 30.165710123851937]
       },
       properties: {
+        isSaved: true,
         address: 'Address of Point 2'
       }
     }
@@ -44,49 +46,65 @@ const draw = new MapboxDraw({
 map.addControl(draw, 'top-left');
 
 const listener = async (event) => {
-  let { features } = event;
-  let firstFeature = features[0];
-  if (firstFeature) {
-    let { coordinates } = firstFeature.geometry;
-    if (Array.isArray(coordinates[0][0])) {
-      [coordinates] = coordinates;
-    }
-    console.log('Point: ' + coordinates[0] + " : " + coordinates[1])
-    var el = document.createElement('div');
-    el.innerHTML = 'Marker 1';
-    const marker = new maplibregl.Marker({
-      draggable: true
-    })
-      .setLngLat([coordinates[0], coordinates[1]])
-
-      // .setPopup(new maplibregl.Popup().setHTML("<div><input name='poi-address' /><div><button>Save</button><button>Delete</button></div></div>"))
-      .addTo(map);
-    marker.on('drag', function () {
-      console.log('Draging marker')
-      // var lngLat = marker.getLngLat();
-      // marker.setLngLat(lngLat);
-    });
-
-    markers.push(marker);
-  }
-  // const newItem = { name: '', area: geometryToArea(feature.geometry) };
-  // draw.delete(feature.id);
-  // try {
-  //   const response = await fetch('/api/geofences', {
-  //     method: 'POST',
-  //     headers: { 'Content-Type': 'application/json' },
-  //     body: JSON.stringify(newItem),
-  //   });
-  //   if (response.ok) {
-  //     const item = await response.json();
-  //     navigate(`/settings/geofence/${item.id}`);
-  //   } else {
-  //     throw Error(await response.text());
+  const { features } = event;
+  // const pointFeature = {
+  //   type: 'Feature',
+  //   geometry: {
+  //     type: 'Point',
+  //     coordinates: [71.7828430061773, 30.165710123851937]
+  //   },
+  //   properties: {
+  //     isSaved: true,
+  //     address: 'Address of Point 2'
   //   }
-  // } catch (error) {
-  //   dispatch(errorsActions.push(error.message));
   // }
+  const feature = features[0];
+  feature.properties.isSaved = false;
+  feature.properties.address = "Unknow Address"
+  console.log(feature)
+  addNewMarker(feature)
+  // let firstFeature = features[0];
+  // if (firstFeature) {
+  //   let { coordinates } = firstFeature.geometry;
+  //   if (Array.isArray(coordinates[0][0])) {
+  //     [coordinates] = coordinates;
+  //   }
+  //   console.log('Point: ' + coordinates[0] + " : " + coordinates[1])
+  //   var el = document.createElement('div');
+  //   el.innerHTML = 'Marker 1';
+  //   const marker = new maplibregl.Marker({
+  //     draggable: true
+  //   })
+  //     .setLngLat([coordinates[0], coordinates[1]])
+
+  //     // .setPopup(new maplibregl.Popup().setHTML("<div><input name='poi-address' /><div><button>Save</button><button>Delete</button></div></div>"))
+  //     .addTo(map);
+  //   marker.on('drag', function () {
+  //     console.log('Draging marker')
+  //     // var lngLat = marker.getLngLat();
+  //     // marker.setLngLat(lngLat);
+  //   });
+
+  //   markers.push(marker);
 };
+// const newItem = { name: '', area: geometryToArea(feature.geometry) };
+// draw.delete(feature.id);
+// try {
+//   const response = await fetch('/api/geofences', {
+//     method: 'POST',
+//     headers: { 'Content-Type': 'application/json' },
+//     body: JSON.stringify(newItem),
+//   });
+//   if (response.ok) {
+//     const item = await response.json();
+//     navigate(`/settings/geofence/${item.id}`);
+//   } else {
+//     throw Error(await response.text());
+//   }
+// } catch (error) {
+//   dispatch(errorsActions.push(error.message));
+// }
+// };
 
 map.on('draw.create', listener);
 
@@ -96,50 +114,75 @@ console.log(bounds); // Outputs the LngLatBounds objects
 
 // add markers to map
 for (const feature of geojson.features) {
-  // create a HTML element for each feature
-  const el = document.createElement('i');
-  el.className = 'icon-pin-alt marker';
+  if (feature.geometry.type == 'Point') {
+    addNewMarker(feature);
+  }
+}
 
-  // make a marker for each feature and add to the map
-  let marker = new maplibregl.Marker({
+function addNewMarker(feature) {
+  const el = document.createElement('i');
+  el.className = feature.properties.isSaved ? 'icon-pin-alt marker' : 'icon-pin marker';
+
+  const marker = new maplibregl.Marker({
     element: el,
     draggable: true
   })
 
   marker.setLngLat(feature.geometry.coordinates)
 
-  // Create a <button> element that will be used as the close button
-  var button = document.createElement('button');
-  button.innerHTML = '<i class="icon-cancel-circle2"></i>';
-  button.className = 'close-button';
+  const address = feature.properties.address;
 
-  marker.setPopup(new maplibregl.Popup({
+  const textArea = document.createElement('textarea');
+  textArea.className = "form-control address"
+  textArea.rows = 5;
+  textArea.cols = 30;
+  textArea.value = address;
+  const textAreaContainer = document.createElement('div');
+  textAreaContainer.appendChild(textArea);
+
+  const saveButton = document.createElement('button');
+  saveButton.className = "btn btn-primary button";
+  saveButton.innerText = 'Save';
+  saveButton.addEventListener('click', (e) => {
+    const newText = textArea.value;
+    if (newText != address) {
+      console.log('Address: ' + newText);
+      const lngLat = marker.getLngLat();
+      console.log('Coordinates: ' + lngLat.lng + ":" + lngLat.lat);
+      console.log('Saving Pin...')
+    }
+  })
+
+  const deleteButton = document.createElement('button');
+  deleteButton.className = "btn btn-danger button";
+  deleteButton.innerText = 'Delete'
+  deleteButton.addEventListener('click', (e) => {
+    const text = "Do you realy want to delete this pin?";
+    if (confirm(text) == true) {
+      console.log('Delete Pin')
+    }
+  });
+
+  const btnContainer = document.createElement('div');
+  btnContainer.className = "btn-container"
+
+  btnContainer.appendChild(deleteButton);
+  btnContainer.appendChild(saveButton);
+
+  const popupContainer = document.createElement('div');
+  popupContainer.className = "modal-content";
+  popupContainer.appendChild(textAreaContainer);
+  popupContainer.appendChild(btnContainer)
+
+  const popup = new maplibregl.Popup({
     closeButton: false,
     closeOnClick: true
-  }).setHTML(
-    `<div class="modal-content">
-      <div>
-        <textarea
-          class="form-control address"
-          rows="5"
-          cols="30"
-        >${feature.properties.address}</textarea>
-      </div>
-      <div>
-        <button class="btn btn-primary">Save</button>
-        <button class="btn btn-danger">Delete</button>
-      </div>
-    </div>`
-  ))
+  }).setDOMContent(popupContainer)
+
+  marker.setPopup(popup)
   marker.on('drag', function () {
     marker.getElement().className = 'icon-pin marker';
-
-    // var lngLat = marker.getLngLat();
-    // console.log(lngLat)
-    // console.log(marker.getElement())
-    // marker.setLngLat(lngLat);
   })
 
   marker.addTo(map);
 }
-
