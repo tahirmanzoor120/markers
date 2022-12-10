@@ -8,6 +8,11 @@ var map = new maplibregl.Map({
 var markers = [];
 var points = [];
 
+// const api = "http://localhost:8082/api/poi"
+const api = "http://46.101.184.82:8082/api/poi";
+const username = 'admin'
+const password = 'admin'
+
 map.addControl(new maplibregl.NavigationControl());
 
 // Add Draw Controls
@@ -31,10 +36,20 @@ map.on('draw.create', async (event) => {
 });
 
 map.on('load', async () => {
-  
-  points = await fetchAllPoints();
-  hideLoader();
-  showPoints(getVisiblePoints());
+  fetch(api, {
+    headers: {
+      Authorization: "Basic " + btoa(username + ":" + password),
+    },
+  })
+    .then(response => response.json())
+    .then(data => {
+      points = data
+      hideLoader();
+      showPoints(getVisiblePoints());
+    })
+    .catch(error => {
+      alert("Failed to load points from server. Please retry.")
+    });
 });
 
 map.on("zoom", () => {
@@ -56,21 +71,6 @@ map.on("dragend", () => {
 });
 
 // ****************** Utility Functions *************************
-
-async function fetchAllPoints() {
-  // const api = "http://localhost:8082/api/poi"
-  const api = "http://46.101.184.82:8082/api/poi";
-  const username = 'admin'
-  const password = 'admin'
-
-  const data = await fetch(api, {
-    headers: {
-      Authorization: "Basic " + btoa(username + ":" + password),
-    },
-  });
-
-  return await data.json();
-}
 
 function getVisiblePoints() {
   // Get the current map bounds
