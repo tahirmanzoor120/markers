@@ -42,8 +42,10 @@ map.on("zoom", () => {
   const zoom = map.getZoom();
   if (zoom <= minZoom && markers.length > 0) {
     removePoints();
+    showInstructions()
   }
   else if (zoom > minZoom) {
+    hideInstructions();
     showPoints(getVisiblePoints());
   }
 });
@@ -179,4 +181,12 @@ function removePoints() {
 
 function hideLoader() {
   document.getElementById('loader').style.display = "none";
+}
+
+function showInstructions() {
+  document.getElementById('instructions').style.display = "block";
+}
+
+function hideInstructions() {
+  document.getElementById('instructions').style.display = "none";
 }
