@@ -8,8 +8,8 @@ var map = new maplibregl.Map({
 var markers = [];
 var points = [];
 
-// const api = "http://localhost:8082/api/poi"
-const api = "http://46.101.184.82:8082/api/poi";
+const api = "http://localhost:8082/api/poi/"
+// const api = "http://46.101.184.82:8082/api/poi/";
 const username = 'admin'
 const password = 'admin'
 
@@ -24,14 +24,17 @@ const draw = new MapboxDraw({
   }
 });
 
+console.log(draw)
+
 map.addControl(draw, 'top-left');
 
 map.on('draw.create', async (event) => {
+  draw.trash()
+  console.log(event)
   const { features } = event;
   const feature = features[0];
   feature.properties.isSaved = false;
-  feature.properties.address = "Unknow Address"
-  console.log(feature)
+  feature.properties.address = ""
   addNewMarker(feature)
 });
 
@@ -95,89 +98,127 @@ function pointToFeature(point) {
       coordinates: [point.lon, point.lat]
     },
     properties: {
-      isSaved: true,
+      id: point.id,
       address: point.address,
+      isSaved: true,
     }
   }
 }
 
 function addNewMarker(feature) {
-  const el = document.createElement('i');
-  el.className = feature.properties.isSaved ? 'icon-pin-alt marker' : 'icon-pin marker';
-
-  const marker = new maplibregl.Marker()
-
-  marker.setLngLat(feature.geometry.coordinates)
-
-  const address = feature.properties.address;
-
+  // Textarea for Address
   const textArea = document.createElement('textarea');
   textArea.className = "form-control address"
   textArea.rows = 5;
   textArea.cols = 30;
-  textArea.value = address;
+  textArea.value = feature.properties.address;
   textArea.disabled = true;
   const textAreaContainer = document.createElement('div');
   textAreaContainer.appendChild(textArea);
 
+  // Edit Button
   const editSaveButton = document.createElement('button');
   editSaveButton.className = "btn btn-primary button";
   editSaveButton.innerText = 'Edit';
-  editSaveButton.addEventListener('click', (e) => {
-    // Make PIN Editable
-    if (editSaveButton.innerText == 'Edit') {
-      textArea.disabled = false;
-      editSaveButton.innerHTML == 'Save';
-      return;
-    }
-    const newText = textArea.value;
-    if (newText != address) {
-      console.log('Address: ' + newText);
-      const lngLat = marker.getLngLat();
-      console.log('Coordinates: ' + lngLat.lng + ":" + lngLat.lat);
-      console.log('Saving Pin...')
-    }
-  })
 
+  // Delete Button
   const deleteButton = document.createElement('button');
   deleteButton.className = "btn btn-danger button";
   deleteButton.innerText = 'Delete'
-  deleteButton.addEventListener('click', (e) => {
-    const text = "Do you realy want to delete this pin?";
-    if (confirm(text) == true) {
-      marker.remove()
-    }
-  });
-
+  
+  // Button Container
   const btnContainer = document.createElement('div');
   btnContainer.className = "btn-container"
-
-
   btnContainer.appendChild(editSaveButton);
   btnContainer.appendChild(deleteButton);
 
+  // Popup Container
   const popupContainer = document.createElement('div');
   popupContainer.className = "modal-content";
   popupContainer.appendChild(textAreaContainer);
-  popupContainer.appendChild(btnContainer)
+  popupContainer.appendChild(btnContainer);
 
+  // Popup
   const popup = new maplibregl.Popup({
     closeButton: false,
     closeOnClick: true
   }).setDOMContent(popupContainer)
 
-  marker.setPopup(popup)
+  // Marker
+  const marker = new maplibregl.Marker()
+  marker.setLngLat(feature.geometry.coordinates).setPopup(popup).addTo(map);
+  markers.push(marker);
+
+  // Event Listeners
+
+  // Marker Dragged
   marker.on('dragend', function () {
-    marker.getElement().className = 'icon-pin marker';
+    console.log('I am dragged');
+  });
+
+  textArea.addEventListener('input', (e) => {
+    console.log(textArea.value)
+    if(textArea.value != feature.properties.address) {
+      editSaveButton.className = "btn btn-info button"
+      editSaveButton.innerText = 'Save';
+    }
+    else {
+      editSaveButton.className = "btn btn-primary button";
+      editSaveButton.innerText = 'Edit';
+    }
   })
 
-  marker.addTo(map);
-  markers.push(marker);
+  // Edit/Save
+  editSaveButton.addEventListener('click', (e) => {
+    // Make PIN Editable
+    if (editSaveButton.innerText == 'Edit') {
+      textArea.disabled = false;
+      return;
+    }
+    const newText = textArea.value;
+    if (newText != feature.properties.address) {
+      console.log('Address: ' + newText);
+      const lngLat = marker.getLngLat();
+      console.log('Coordinates: ' + lngLat.lng + ":" + lngLat.lat);
+      console.log('Saving Pin...')
+    }
+  });
+
+  // Delete
+  deleteButton.addEventListener('click', (e) => {
+    const text = "Do you realy want to delete this pin?";
+    if (confirm(text) == true) {
+      showLoader();
+      fetch(api + feature.properties.id, {
+        method: 'DELETE',
+        headers: {
+          Authorization: "Basic " + btoa(username + ":" + password),
+        },
+      })
+        .then(response => {
+          if (response.ok) {
+            marker.remove()
+            hideLoader();
+            console.log('Point delete from server.')
+          } else {
+            alert('Server delete operation failed.')
+          }
+        })
+        .catch(error => {
+          alert(error)
+        });
+    }
+  });
+
 }
 
 function removePoints() {
   markers.forEach(marker => marker.remove());
   markers = []
+}
+
+function showLoader() {
+  document.getElementById('loader').style.display = "block";
 }
 
 function hideLoader() {
