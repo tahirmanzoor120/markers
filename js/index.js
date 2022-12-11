@@ -48,7 +48,8 @@ map.on('load', async () => {
       showPoints(getVisiblePoints());
     })
     .catch(error => {
-      alert("Failed to load points from server. Please retry.")
+      hideLoader();
+      alert(error)
     });
 });
 
@@ -144,7 +145,7 @@ function addNewMarker(feature) {
   deleteButton.addEventListener('click', (e) => {
     const text = "Do you realy want to delete this pin?";
     if (confirm(text) == true) {
-      console.log('Delete Pin')
+      marker.remove()
     }
   });
 

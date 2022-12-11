@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Norification Demo</title>
+</head>
+
+<body>
+    <div>
+        <button id="button">Show Notification</button>
+    </div>
+    <script>
+        document.getElementById('button').addEventListener('click', () => {
+            console.log('Button clicked.')
+            showNotification();
+        });
+
+        function showNotification() {
+            if (!("Notification" in window) || !("speechSynthesis" in window)) {
+                alert("Browser does not support notifications or text-to-speech");
+                return;
+            }
+            else if (Notification.permission === "granted") {
+                createNotification()
+            }
+            else if (Notification.permission !== "denied") {
+                Notification.requestPermission().then(function (permission) {
+                    if (permission === "granted") {
+                        createNotification()
+                    }
+                });
+            }
+        }
+
+        function createNotification() {
+            var msg = new SpeechSynthesisUtterance("Car is moving slowly.");
+
+            msg.lang = "en-US";
+            msg.voice = speechSynthesis.getVoices().filter(function (voice) {
+                return voice.name == "Google US English";
+            })[0];
+
+            speechSynthesis.speak(msg);
+
+            msg.onend = function (event) {
+                var notification = new Notification("Car is moving slowly.");
+            }
+        }
+    </script>
+</body>
+
+</html>
