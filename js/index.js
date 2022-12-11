@@ -8,8 +8,8 @@ var map = new maplibregl.Map({
 var markers = [];
 var points = [];
 
-const api = "http://localhost:8082/api/poi/"
-// const api = "http://46.101.184.82:8082/api/poi/";
+const api = "http://localhost:8082/api/poi"
+// const api = "http://46.101.184.82:8082/api/poi";
 const username = 'admin'
 const password = 'admin'
 
@@ -24,8 +24,6 @@ const draw = new MapboxDraw({
   }
 });
 
-console.log(draw)
-
 map.addControl(draw, 'top-left');
 
 map.on('draw.create', async (event) => {
@@ -38,23 +36,7 @@ map.on('draw.create', async (event) => {
   addNewMarker(feature)
 });
 
-map.on('load', async () => {
-  fetch(api, {
-    headers: {
-      Authorization: "Basic " + btoa(username + ":" + password),
-    },
-  })
-    .then(response => response.json())
-    .then(data => {
-      points = data
-      hideLoader();
-      showPoints(getVisiblePoints());
-    })
-    .catch(error => {
-      hideLoader();
-      alert(error)
-    });
-});
+map.on('load', async () => loadPoints());
 
 map.on("zoom", () => {
   const minZoom = 14;
@@ -65,29 +47,44 @@ map.on("zoom", () => {
   }
   else if (zoom > minZoom) {
     hideInstructions();
-    showPoints(getVisiblePoints());
+    showPoints();
   }
 });
 
 map.on("dragend", () => {
   removePoints();
-  showPoints();
+  loadPoints();
 });
 
 // ****************** Utility Functions *************************
 
-function getVisiblePoints() {
-  // Get the current map bounds
+function loadPoints() {
   const bounds = map.getBounds();
-  // Filter the points within the bounds
-  return points.filter(point => {
-    const coordinates = new maplibregl.LngLat(point.lon, point.lat)
-    return bounds.contains(coordinates)
+
+  const north = bounds.getNorth();
+  const south = bounds.getSouth();
+  const east = bounds.getEast();
+  const west = bounds.getWest();
+  const url = api + "?" + "south=" + south + "&north=" + north + "&west=" + west + "&east=" + east;
+  fetch(url, {
+    headers: {
+      Authorization: "Basic " + btoa(username + ":" + password),
+    },
   })
+    .then(response => response.json())
+    .then(data => {
+      points = data
+      hideLoader();
+      showPoints();
+    })
+    .catch(error => {
+      hideLoader();
+      alert(error)
+    });
 }
 
 function showPoints() {
-  getVisiblePoints(points).forEach(point => addNewMarker(pointToFeature(point)));
+  points.forEach(point => addNewMarker(pointToFeature(point)));
 }
 
 function pointToFeature(point) {
@@ -160,7 +157,7 @@ function addNewMarker(feature) {
 
   // Marker Dragged
   marker.on('dragend', function () {
-    
+
   });
 
   textArea.addEventListener('input', (e) => {
@@ -188,7 +185,6 @@ function addNewMarker(feature) {
     fetch(api + id, {
       method: 'PUT',
       body: JSON.stringify({
-        id,
         address: textArea.value,
         lon,
         lat,
