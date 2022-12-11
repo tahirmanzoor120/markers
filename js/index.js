@@ -182,7 +182,7 @@ function addNewMarker(feature) {
     }
 
     // Update Pin
-    fetch(api + id, {
+    fetch(api + "/" + id, {
       method: 'PUT',
       body: JSON.stringify({
         address: textArea.value,
@@ -209,7 +209,7 @@ function addNewMarker(feature) {
     if (confirm(text) == true) {
       showLoader();
       // Delete pin from server
-      fetch(api + id, {
+      fetch(api + "/" + id, {
         method: 'DELETE',
         headers: {
           Authorization: "Basic " + btoa(username + ":" + password),
