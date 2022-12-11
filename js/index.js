@@ -106,12 +106,19 @@ function pointToFeature(point) {
 }
 
 function addNewMarker(feature) {
+  const id = feature.properties.id;
+  const address = feature.properties.address;
+  const lon = feature.geometry.coordinates[0];
+  const lat = feature.geometry.coordinates[1];
+
+  // console.log(id + " : " + lng + " : " + lat + " : " + address)
+
   // Textarea for Address
   const textArea = document.createElement('textarea');
   textArea.className = "form-control address"
   textArea.rows = 5;
   textArea.cols = 30;
-  textArea.value = feature.properties.address;
+  textArea.value = address;
   textArea.disabled = true;
   const textAreaContainer = document.createElement('div');
   textAreaContainer.appendChild(textArea);
@@ -125,7 +132,7 @@ function addNewMarker(feature) {
   const deleteButton = document.createElement('button');
   deleteButton.className = "btn btn-danger button";
   deleteButton.innerText = 'Delete'
-  
+
   // Button Container
   const btnContainer = document.createElement('div');
   btnContainer.className = "btn-container"
@@ -153,12 +160,11 @@ function addNewMarker(feature) {
 
   // Marker Dragged
   marker.on('dragend', function () {
-    console.log('I am dragged');
+    
   });
 
   textArea.addEventListener('input', (e) => {
-    console.log(textArea.value)
-    if(textArea.value != feature.properties.address) {
+    if (textArea.value != address) {
       editSaveButton.className = "btn btn-info button"
       editSaveButton.innerText = 'Save';
     }
@@ -170,18 +176,35 @@ function addNewMarker(feature) {
 
   // Edit/Save
   editSaveButton.addEventListener('click', (e) => {
-    // Make PIN Editable
+    // Make Pin Editable
     if (editSaveButton.innerText == 'Edit') {
       textArea.disabled = false;
+      marker.setDraggable(true);
+      console.log(marker)
       return;
     }
-    const newText = textArea.value;
-    if (newText != feature.properties.address) {
-      console.log('Address: ' + newText);
-      const lngLat = marker.getLngLat();
-      console.log('Coordinates: ' + lngLat.lng + ":" + lngLat.lat);
-      console.log('Saving Pin...')
-    }
+
+    // Update Pin
+    fetch(api + id, {
+      method: 'PUT',
+      body: JSON.stringify({
+        id,
+        address: textArea.value,
+        lon,
+        lat,
+      }),
+      headers: {
+        Authorization: "Basic " + btoa(username + ":" + password),
+        'Content-Type': 'application/json'
+      }
+    })
+      .then(response => response.json())
+      .then(data => console.log(data))
+      .catch(error => console.error(error));
+
+    // const lngLat = marker.getLngLat();
+    // console.log('Address: ' + textArea.value);
+    // console.log('Coordinates: ' + lngLat.lng + ":" + lngLat.lat);
   });
 
   // Delete
@@ -189,7 +212,8 @@ function addNewMarker(feature) {
     const text = "Do you realy want to delete this pin?";
     if (confirm(text) == true) {
       showLoader();
-      fetch(api + feature.properties.id, {
+      // Delete pin from server
+      fetch(api + id, {
         method: 'DELETE',
         headers: {
           Authorization: "Basic " + btoa(username + ":" + password),
@@ -199,7 +223,6 @@ function addNewMarker(feature) {
           if (response.ok) {
             marker.remove()
             hideLoader();
-            console.log('Point delete from server.')
           } else {
             alert('Server delete operation failed.')
           }
