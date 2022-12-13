@@ -1,12 +1,11 @@
-var api = "http://localhost:8082/api/poi"
-// var api = "http://46.101.184.82:8082/api/poi";
+// var api = "http://localhost:8082/api/poi"
+var api = "http://46.101.184.82:8082/api/poi";
 var username = 'admin'
 var password = 'admin'
 
 var minZoom = 14;
 
 var points = [];
-var markers = [];
 
 var drawControl = null;
 
@@ -23,7 +22,7 @@ map.on('load', () => {
         .then(data => {
             setLoaderVisible(false);
             points = data;
-            showPoints(points);
+            addMarkers(points);
         })
         .catch(error => {
             setLoaderVisible(false);
@@ -33,18 +32,23 @@ map.on('load', () => {
 
 map.on('draw.create', async (event) => {
     drawControl.trash()
-    const feature = event.features[0];
+    const coordinates = event.features[0].geometry.coordinates;
+    const point = {
+        id: 0,
+        lon: coordinates[0],
+        lat: coordinates[1],
+        address: ''
+    }
     const isSaved = false;
-    feature.properties.address = ""
-    const marker = createMarker(feature, isSaved);
-    marker.addTo(map);
+    createMarker(point, isSaved);
 });
 
 map.on("dragend", () => {
     const currentZoom = map.getZoom();
     if (currentZoom >= minZoom) {
-        url = getUrlToFetchPoints();
         setLoaderVisible(true);
+
+        url = getUrlToFetchPoints();
         fetch(url, {
             headers: {
                 Authorization: "Basic " + btoa(username + ":" + password),
@@ -53,11 +57,10 @@ map.on("dragend", () => {
             .then(response => response.json())
             .then(data => {
                 setLoaderVisible(false);
+                removeMarkers(points);
                 const fetchedPoints = data;
-                const newPoints = fetchedPoints.filter(p => !points.includes(p));
-                showPoints(newPoints);
-                removeInvisibleMarkersAndPoints();
-                points.push(...newPoints);
+                addMarkers(fetchedPoints);
+                points.push(...fetchedPoints);
             })
             .catch(error => {
                 setLoaderVisible(false);
@@ -68,14 +71,29 @@ map.on("dragend", () => {
 
 map.on("zoomend", () => {
     const currentZoom = map.getZoom();
-    if (currentZoom <= minZoom && markers.length > 0) {
-        removeMarkers(markers);
-        markers.splice(0, markers.length);
+    if (currentZoom <= minZoom && points.length > 0) {
+        removeMarkers(points);
         setInstructionsVisible(true);
     }
-    else if (currentZoom > minZoom && markers.length == 0) {
+    else if (currentZoom > minZoom && points.length == 0) {
         setInstructionsVisible(false);
-        showPoints(points);
+        setLoaderVisible(true);
+        url = getUrlToFetchPoints();
+        fetch(url, {
+            headers: {
+                Authorization: "Basic " + btoa(username + ":" + password),
+            },
+        })
+            .then(response => response.json())
+            .then(data => {
+                setLoaderVisible(false);
+                points = data;
+                addMarkers(points);
+            })
+            .catch(error => {
+                setLoaderVisible(false);
+                alert(error)
+            });
     }
 });
 
@@ -106,16 +124,6 @@ function initMap() {
     return map;
 }
 
-function showPoints(list) {
-    list.forEach((point) => {
-        feature = pointToFeature(point);
-        const marker = createMarker(feature);
-        marker.addTo(map);
-        markers.push(marker);
-    });
-    console.log("Points: " + points.length + " : Markers = " + markers.length);
-}
-
 function getUrlToFetchPoints() {
     const bounds = map.getBounds();
 
@@ -127,25 +135,21 @@ function getUrlToFetchPoints() {
     return api + "?" + "south=" + south + "&north=" + north + "&west=" + west + "&east=" + east;
 }
 
-function pointToFeature(point) {
-    return {
-        type: 'Feature',
-        geometry: {
-            type: 'Point',
-            coordinates: [point.lon, point.lat]
-        },
-        properties: {
-            id: point.id,
-            address: point.address,
-        }
-    }
+function addMarkers(pointsList) {
+    pointsList.forEach((point) => {
+        const marker = createMarker(point);
+        point.marker = marker;
+    });
 }
 
-function createMarker(feature, isSaved = true) {
-    const id = feature.properties.id;
-    const address = feature.properties.address;
-    const lon = feature.geometry.coordinates[0];
-    const lat = feature.geometry.coordinates[1];
+function removeMarkers(pointsList) {
+    pointsList.forEach(p => p.marker.remove());
+    pointsList.splice(0, pointsList.length);
+}
+
+function createMarker(point, isSaved = true) {
+
+    let { id, address, lon, lat } = point;
 
     // Textarea for Address
     const textArea = document.createElement('textarea');
@@ -209,26 +213,42 @@ function createMarker(feature, isSaved = true) {
 
     // Marker
     const marker = new maplibregl.Marker()
-    marker.setLngLat(feature.geometry.coordinates).setPopup(popup);
+    marker.setLngLat([lon, lat]).setPopup(popup);
 
     if (!isSaved) {
         marker.setDraggable(true);
+        editSaveButton.disabled = true;
     }
 
     // Event Listeners
 
     // Marker Dragged
-    // marker.on('dragend', function () {
-    // });
+    marker.on('dragend', function () {
+        if(textArea.value.length == 0) return;
+
+        var lngLat = marker.getLngLat();
+        lon = lngLat.lng;
+        lat = lngLat.lat;
+        editSaveButton.className = "btn btn-info button"
+        editSaveButton.innerText = (isSaved ? 'Update' : 'Save');
+        editSaveButton.disabled = false;
+    });
 
     textArea.addEventListener('input', (e) => {
+        if(textArea.value.length == 0) {
+            editSaveButton.disabled = true;
+            return;
+        }
+
         if (!isSaved || textArea.value != address) {
             editSaveButton.className = "btn btn-info button"
-            editSaveButton.innerText = 'Save';
+            editSaveButton.innerText = (isSaved ? 'Update' : 'Save');
+            editSaveButton.disabled = false;
         }
         else {
             editSaveButton.className = "btn btn-primary button";
             editSaveButton.innerText = 'Edit';
+            editSaveButton.disabled = true;
         }
     })
 
@@ -236,29 +256,78 @@ function createMarker(feature, isSaved = true) {
     editSaveButton.addEventListener('click', (e) => {
         // Make Pin Editable
         if (editSaveButton.innerText == 'Edit') {
+            editSaveButton.disabled = true;
             textArea.disabled = false;
             marker.setDraggable(true);
             return;
         }
 
-        // Update Pin
+        // Save new Pin on Server
+        if (!isSaved) {
+            setLoaderVisible(true);
+            fetch(api, {
+                method: 'POST',
+                body: JSON.stringify({
+                    id: 0,
+                    address: textArea.value,
+                    lon,
+                    lat,
+                }),
+                headers: {
+                    Authorization: "Basic " + btoa(username + ":" + password),
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => {
+                    setLoaderVisible(false);
+                    editSaveButton.innerText = 'Saved';
+                    editSaveButton.disabled = true;
+                    setTimeout(() => {
+                        editSaveButton.className = "btn btn-primary button";
+                        editSaveButton.innerText = 'Edit';
+                        editSaveButton.disabled = false;
+                        isSaved = true;
+                    }, 3000);
+                })
+                .catch(error => {
+                    setLoaderVisible(false);
+                    console.error(error);
+                });
+
+            return;
+        }
+
+        // Update Pin on Server
         setLoaderVisible(true);
+
         fetch(api + "/" + id, {
             method: 'PUT',
             body: JSON.stringify({
+                id,
                 address: textArea.value,
-                // lon,
-                // lat,
+                lon,
+                lat,
             }),
             headers: {
                 Authorization: "Basic " + btoa(username + ":" + password),
                 'Content-Type': 'application/json'
             }
         })
-            .then(response => response.json()).then(data => console.log(data))
-            .catch(error => console.error(error));
-
-        setLoaderVisible(false);
+            .then(response => response.json()).then(data => {
+                setLoaderVisible(false);
+                editSaveButton.innerText = 'Updated';
+                editSaveButton.disabled = true;
+                setTimeout(() => {
+                    editSaveButton.className = "btn btn-primary button";
+                    editSaveButton.innerText = 'Edit';
+                    editSaveButton.disabled = false;
+                }, 3000);
+            })
+            .catch(error => {
+                setLoaderVisible(false);
+                alert(error);
+                console.error(error);
+            });
     });
 
     // Delete
@@ -292,23 +361,8 @@ function createMarker(feature, isSaved = true) {
         }
     });
 
+    marker.addTo(map);
     return marker;
-}
-
-function removeMarkers(list) {
-    list.forEach(marker => marker.remove());
-}
-
-function removeInvisibleMarkersAndPoints() {
-    const bounds = map.getBounds();
-    markers.forEach(marker => {
-        const lnglat = marker.getLngLat();
-        if (!bounds.contains(lnglat)) {
-            marker.remove();
-            const point = points.find(p => p.lat == lnglat.lat && p.lon == lnglat.lng);
-            points.splice(points.indexOf(point), 1);
-        }
-    });
 }
 
 function setLoaderVisible(isBusy) {
